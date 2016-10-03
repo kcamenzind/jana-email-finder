@@ -41,28 +41,8 @@ class EmailFinder():
 
 						content = response.read().decode('utf-8')
 
-						# find all emails on this page
-						email_pattern = '[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}'
-						possible_emails = re.findall(email_pattern, content)
-						for email in possible_emails:
-							if self._is_valid_email(email):
-								if email not in self.emails:
-									self.emails.add(email)
-									print(email)
-
-						# find all links on this page
-						url_pattern = 'href=[\"|\'][a-zA-Z0-9-._~:\/\?#\[\]@!$&\'()\*\+,;=]+[\"|\']'
-						discovered_links = re.findall(url_pattern, content)
-
-						# visit all links (if they're part of the original domain)
-						# takes into account when re.findall returns a list of groups
-						# rather than just plain strings
-						for link_object in discovered_links:
-							if type(link_object) is not str:
-								for link in link_object:
-									self._get_emails_from_link(link, allow_subdomains)	
-							else:
-								self._get_emails_from_link(link_object, allow_subdomains)
+						self._get_emails(content)
+						self._add_uris(content)
 
 				# if the url isn't actually a valid url, we can just ignore it for now
 				# (would ideally do something more sophisticated)
@@ -73,6 +53,15 @@ class EmailFinder():
 			return 0
 		else:
 			return 1
+
+	def _get_emails(self, content):
+		email_pattern = '[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}'
+		possible_emails = re.findall(email_pattern, content)
+		for email in possible_emails:
+			if self._is_valid_email(email):
+				if email not in self.emails:
+					self.emails.add(email)
+					print(email)
 
 	def _is_valid_email(self, email):
 		""" 
@@ -86,14 +75,31 @@ class EmailFinder():
 		local = email.split('@')[0]
 		domain = email.split('@')[1]
 		
-		if local.startswith('.') or local.endswith('.') or email.startswith('.') \
-			or email.endswith('.'):
+		if local.startswith('.') or local.endswith('.') or  \
+			email.startswith('.') or email.endswith('.'):
 			return False
 
 		if '..' in email:
 			return False
 
 		return True
+
+	def _add_uris(self, content):
+		"""
+		Adds any uris discovered in the content to uri_stack
+		"""
+		url_pattern = 'href=[\"|\'][a-zA-Z0-9-._~:\/\?#\[\]@!$&\'()\*\+,;=]+[\"|\']'
+		discovered_links = re.findall(url_pattern, content)
+
+		# visit all links (if they're part of the original domain)
+		# takes into account when re.findall returns a list of groups
+		# rather than just plain strings
+		for link_object in discovered_links:
+			if type(link_object) is not str:
+				for link in link_object:
+					self._get_emails_from_link(link, allow_subdomains)	
+			else:
+				self._get_emails_from_link(link_object, allow_subdomains)
 
 	def _get_uri(self, raw_link, parent_domain):
 		"""
@@ -128,7 +134,8 @@ class EmailFinder():
 		if ok:
 			if allow_subdomains and self.domain in uri:
 				self.uri_stack.append(uri)
-			elif uri.startswith(self.domain) or uri.startswith('www.' + self.domain):
+			elif uri.startswith(self.domain) or \
+				uri.startswith('www.' + self.domain):
 				self.uri_stack.append(uri)
 
 if __name__ == "__main__":
