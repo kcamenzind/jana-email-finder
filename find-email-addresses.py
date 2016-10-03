@@ -76,7 +76,7 @@ class EmailFinder():
         domain = email.split('@')[1]
         
         if local.startswith('.') or local.endswith('.') or  \
-            email.startswith('.') or email.endswith('.'):
+            domain.startswith('.') or domain.endswith('.'):
             return False
 
         if '..' in email:
